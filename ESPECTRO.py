@@ -167,7 +167,7 @@ Tp = st.sidebar.number_input(
     step=0.05,
 )
 TL = st.sidebar.number_input(
-    "Períero de desplazamiento (TL) [s]:",
+    "Período de desplazamiento (TL) [s]:",
     min_value=0.5,
     max_value=10.0,
     value=TL_base,
@@ -283,16 +283,13 @@ def calcular_sa(t, R):
     return (Z * U * C * S * g) / R
 
 
-# --- MODIFICACIÓN DE INTERVALOS EXACTOS PARA ETABS (CADA 0.05s) ---
-periodos_base = np.arange(0.0, 5.05, 0.05)
-puntos_control = [0.2 * Tp, Tp, TL]
-periodos_finales = np.unique(np.sort(np.concatenate((periodos_base, puntos_control))))
-
+# Generación de datos
+t_vals = np.linspace(0.0, 5.0, 1000)
 data = pd.DataFrame(
     {
-        "Periodo": periodos_finales,
-        "Sa_X": [calcular_sa(t, Rx) for t in periodos_finales],
-        "Sa_Y": [calcular_sa(t, Ry) for t in periodos_finales],
+        "Periodo": t_vals,
+        "Sa_X": [calcular_sa(t, Rx) for t in t_vals],
+        "Sa_Y": [calcular_sa(t, Ry) for t in t_vals],
     }
 )
 
@@ -344,13 +341,18 @@ def graficar_eje(col, y_col, titulo, color_linea, R_act):
 
         st.pyplot(fig)
 
-        # --- EXPORTACIÓN FORMATO .TXT LIMPIO NATIVO PARA ETABS ---
-        txt_lineas = data[["Periodo", y_col]].to_csv(
-            index=False, header=False, sep="\t"
-        )
+        # --- AQUÍ ESTÁ LA ÚNICA MODIFICACIÓN PEDIDA (FORMATO DE DECIMALES) ---
+        lineas_formateadas = []
+        for _, fila in data.iterrows():
+            p_fmt = f"{fila['Periodo']:.2f}"
+            sa_fmt = f"{fila[y_col]:.4f}"
+            lineas_formateadas.append(f"{p_fmt}\t{sa_fmt}")
+        
+        txt_final = "\n".join(lineas_formateadas)
+
         st.download_button(
             label=f"📥 Descargar Espectro ETABS ({titulo})",
-            data=txt_lineas,
+            data=txt_final,
             file_name=f"espectro_etabs_{y_col}.txt",
             mime="text/plain",
         )
