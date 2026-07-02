@@ -8,7 +8,8 @@ from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 st.set_page_config(
     page_title="Espectro E.030-2026 Profesional", layout="wide"
 )
-# --- CABECERA PROFESIONAL CON LOGO EN LA ESQUINA SUPERIOR DERECHA ---
+
+# --- CABECERA PROFESIONAL ---
 col_titulo, col_logo = st.columns([5, 1])
 
 with col_titulo:
@@ -21,6 +22,7 @@ with col_logo:
     except Exception:
         pass
 st.markdown("---")
+
 # --- SIDEBAR: CONTROLES GENERALES ---
 st.sidebar.header("⚙️ 1. Factores Generales")
 
@@ -93,62 +95,32 @@ S_base = 1.00
 Tp_base, TL_base = 0.40, 2.50
 msg_status = ""
 
-# Lógica condicional corregida para evitar el quiebre de interfaz al cambiar rápido de suelo
-if suelo_sel in ["S0", "S1", "S4"]:
+# --- LÓGICA SIN ENSAYO GEOFÍSICO (VALORES MÁXIMOS POR DEFECTO EN S2 Y S3) ---
+if suelo_sel in ["S0 (Roca del lugar)", "S1 (Roca o suelo muy rígido)", "S4 (Condiciones excepcionales)"]:
     S_base = (
         float(tabla_4_S[suelo_sel][idx_zona])
-        if suelo_sel != "S4"
+        if suelo_sel != "S4 (Condiciones excepcionales)"
         else float(np.max(tabla_4_S[suelo_sel][idx_zona]))
     )
-    if suelo_sel == "S0":
+    if suelo_sel == "S0 (Roca del lugar)":
         Tp_base, TL_base = 0.3, 3.0
-    elif suelo_sel == "S1":
+    elif suelo_sel == "S1 (Roca o suelo muy rígido)":
         Tp_base, TL_base = 0.4, 2.5
     else:
         Tp_base, TL_base = 1.2, 1.6
     msg_status = "fijo"
 else:
-    cuenta_con_vs30 = st.sidebar.checkbox(
-        "¿Cuenta con el ensayo geofísico (Vs30)?",
-        value=False,
-        help="Si se desactiva, se aplicará el valor máximo del intervalo de forma automática según la nota al pie (*).",
-    )
-
-    v_min, v_max = (
-        (180.0, 500.0)
-        if suelo_sel == "S2 (Suelos intermedios)"
-        else (60.0, 180.0)
-    )
+    # Para S2 y S3 se toma automáticamente el valor máximo del rango (Criterio Conservador)
     rango_S = tabla_4_S[suelo_sel][idx_zona]
-
-    # Doble verificación: solo intenta tratarlo como rango si realmente es una tupla/lista
-    if not cuenta_con_vs30 or not isinstance(rango_S, (tuple, list)):
-        S_base = float(rango_S[1]) if isinstance(rango_S, (tuple, list)) else float(rango_S)
-        if suelo_sel == "S2 (Suelos intermedios)":
-            Tp_base, TL_base = 0.6, 2.0
-        else:
-            Tp_base, TL_base = 0.9, 1.6
-        msg_status = "nota_pie"
+    S_base = float(rango_S[1])
+    
+    if suelo_sel == "S2 (Suelos intermedios)":
+        Tp_base, TL_base = 0.6, 2.0
     else:
-        vs30_input = st.sidebar.number_input(
-            f"Velocidad de ondas de corte Vs30 (m/s):",
-            min_value=v_min,
-            max_value=v_max,
-            value=float((v_min + v_max) / 2),
-            step=5.0,
-        )
+        Tp_base, TL_base = 0.9, 1.6
+    msg_status = "nota_pie"
 
-        S_base = rango_S[1] - (
-            (vs30_input - v_min) / (v_max - v_min) * (rango_S[1] - rango_S[0])
-        )
-
-        if suelo_sel == "S2 (Suelos intermedios)":
-            Tp_base, TL_base = 0.4, 2.5
-        else:
-            Tp_base, TL_base = 0.6, 2.0
-        msg_status = f"⚡ **Interpolación Lineal por Vs30:** Para $V_{{s30}} = {vs30_input:.1f}\\text{{ m/s}}$, se calculó de forma proporcional un factor $S = {S_base:.3f}$."
-
-# Parámetros finales
+# Parámetros finales (Editables en la barra lateral)
 S = st.sidebar.number_input(
     "Factor de Suelo final (S):",
     min_value=0.5,
@@ -280,8 +252,9 @@ def calcular_sa(t, R):
     return (Z * U * C * S * g) / R
 
 
-# Generación de datos
-t_vals = np.linspace(0.0, 5.0, 1000)
+# --- GENERACIÓN DE DATOS CORREGIDA ---
+# Intervalos exactos de 0.01s para evitar duplicados por redondeo
+t_vals = np.arange(0.0, 5.01, 0.01)
 data = pd.DataFrame(
     {
         "Periodo": t_vals,
@@ -290,15 +263,13 @@ data = pd.DataFrame(
     }
 )
 
-# --- VISUALIZACIÓN ---
+# --- VISUALIZACIÓN Y GRÁFICAS ---
 st.markdown("---")
 st.subheader("📈 Espectros Sísmicos de Diseño E.030-2026")
 
-if isinstance(msg_status, str) and msg_status.startswith("⚡"):
-    st.success(msg_status)
-elif msg_status == "nota_pie":
+if msg_status == "nota_pie":
     st.warning(
-        f"⚠️ **Nota (*) Activada de forma Automática (Sin Vs30):** Al no contar con el ensayo de ondas de corte, la norma exige adoptar los valores más desfavorables del intervalo ($S = {S:.2f}$, Tp = {Tp:.2f}s, TL = {TL:.2f}s) para proteger la estructura."
+        f"⚠️ **Criterio Conservador Automático (Sin Vs30):** Al no considerar el ensayo de ondas de corte, la norma exige adoptar los valores más desfavorables del intervalo ($S = {S:.2f}$, Tp = {Tp:.2f}s, TL = {TL:.2f}s) para proteger la estructura."
     )
 
 g_col1, g_col2 = st.columns(2)
@@ -338,10 +309,10 @@ def graficar_eje(col, y_col, titulo, color_linea, R_act):
 
         st.pyplot(fig)
 
-        # Formato de decimales para ETABS
+        # EXPORTACIÓN CORREGIDA: Periodos limpios con 3 decimales consecutivos para ETABS
         lineas_formateadas = []
         for _, fila in data.iterrows():
-            p_fmt = f"{fila['Periodo']:.2f}"
+            p_fmt = f"{fila['Periodo']:.3f}"
             sa_fmt = f"{fila[y_col]:.4f}"
             lineas_formateadas.append(f"{p_fmt}\t{sa_fmt}")
         
