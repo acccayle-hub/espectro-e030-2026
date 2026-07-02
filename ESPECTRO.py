@@ -8,9 +8,19 @@ from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 st.set_page_config(
     page_title="Espectro E.030-2026 Profesional", layout="wide"
 )
-st.title("🏗️ Sistema de Espectros Sísmicos Parametrizado - Norma E.030 2026")
-st.markdown("---")
+# --- CABECERA PROFESIONAL CON LOGO EN LA ESQUINA SUPERIOR DERECHA ---
+col_titulo, col_logo = st.columns([5, 1])
 
+with col_titulo:
+    st.title("⚙️ Sistema de Espectros Sísmicos Parametrizado")
+    st.subheader("Norma Técnica E.030 - Edición 2026")
+
+with col_logo:
+    try:
+        st.image("logo_puican.png", width=90)
+    except Exception:
+        pass
+st.markdown("---")
 # --- SIDEBAR: CONTROLES GENERALES ---
 st.sidebar.header("⚙️ 1. Factores Generales")
 
