@@ -93,7 +93,7 @@ S_base = 1.00
 Tp_base, TL_base = 0.40, 2.50
 msg_status = ""
 
-# Lógica condicional según el tipo de suelo y disponibilidad de Vs30
+# Lógica condicional corregida para evitar el quiebre de interfaz al cambiar rápido de suelo
 if suelo_sel in ["S0", "S1", "S4"]:
     S_base = (
         float(tabla_4_S[suelo_sel][idx_zona])
@@ -108,7 +108,6 @@ if suelo_sel in ["S0", "S1", "S4"]:
         Tp_base, TL_base = 1.2, 1.6
     msg_status = "fijo"
 else:
-    # Casilla de verificación para activar/desactivar Vs30 para suelos S2 y S3
     cuenta_con_vs30 = st.sidebar.checkbox(
         "¿Cuenta con el ensayo geofísico (Vs30)?",
         value=False,
@@ -122,16 +121,15 @@ else:
     )
     rango_S = tabla_4_S[suelo_sel][idx_zona]
 
-    if not cuenta_con_vs30:
-        # CRITERIO CONSERVADOR DE LA NOTA AL PIE (*): CASILLA DESACTIVADA
-        S_base = float(rango_S[1])  # Tomar el máximo del intervalo
+    # Doble verificación: solo intenta tratarlo como rango si realmente es una tupla/lista
+    if not cuenta_con_vs30 or not isinstance(rango_S, (tuple, list)):
+        S_base = float(rango_S[1]) if isinstance(rango_S, (tuple, list)) else float(rango_S)
         if suelo_sel == "S2 (Suelos intermedios)":
             Tp_base, TL_base = 0.6, 2.0
         else:
             Tp_base, TL_base = 0.9, 1.6
         msg_status = "nota_pie"
     else:
-        # SE ACTIVA LA CASILLA: INTERPOLACIÓN DISPONIBLE
         vs30_input = st.sidebar.number_input(
             f"Velocidad de ondas de corte Vs30 (m/s):",
             min_value=v_min,
@@ -140,7 +138,6 @@ else:
             step=5.0,
         )
 
-        # Fórmula de interpolación lineal sísmica
         S_base = rango_S[1] - (
             (vs30_input - v_min) / (v_max - v_min) * (rango_S[1] - rango_S[0])
         )
@@ -151,7 +148,7 @@ else:
             Tp_base, TL_base = 0.6, 2.0
         msg_status = f"⚡ **Interpolación Lineal por Vs30:** Para $V_{{s30}} = {vs30_input:.1f}\\text{{ m/s}}$, se calculó de forma proporcional un factor $S = {S_base:.3f}$."
 
-# Parámetros finales (mostrados de forma transparente y editables si es necesario)
+# Parámetros finales
 S = st.sidebar.number_input(
     "Factor de Suelo final (S):",
     min_value=0.5,
@@ -341,7 +338,7 @@ def graficar_eje(col, y_col, titulo, color_linea, R_act):
 
         st.pyplot(fig)
 
-        # --- AQUÍ ESTÁ LA ÚNICA MODIFICACIÓN PEDIDA (FORMATO DE DECIMALES) ---
+        # Formato de decimales para ETABS
         lineas_formateadas = []
         for _, fila in data.iterrows():
             p_fmt = f"{fila['Periodo']:.2f}"
