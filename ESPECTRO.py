@@ -17,7 +17,7 @@ with col_titulo:
 
 with col_logo:
     try:
-        st.image("logo_puican.png", width=160)
+        st.image("logo_puican.png", width=250)
     except Exception:
         pass
 st.markdown("---")
