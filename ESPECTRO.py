@@ -8,32 +8,6 @@ from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 st.set_page_config(
     page_title="Espectro E.030-2026 Profesional", layout="wide"
 )
-
-# --- CABECERA PROFESIONAL ---
-col_titulo, col_logo = st.columns([5, 1])
-
-with col_titulo:
-    st.title("⚙️ Sistema de Espectros Sísmicos Parametrizado")
-    st.subheader("Norma Técnica E.030 - Edición 2026")
-
-with col_logo:
-    try:
-        st.image("logo_puican.png", width=500)
-    except Exception:
-        pass
-st.markdown("---")
-
-# --- SIDEBAR: CONTROLES GENERALES ---
-st.sidebar.header("⚙️ 1. Factores Generales")
-
-g = st.sidebar.number_input(
-    "Aceleración de la gravedad (g) [m/s²]:",
-    min_value=1.0,
-    max_value=10.0,
-    value=9.81,
-    step=0.01,
-)
-
 # Tabla de Zonas
 z_opts = {
     "Zona 4 (Z = 0.45)": 0.45,
