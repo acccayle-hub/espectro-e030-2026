@@ -167,7 +167,7 @@ Tp = st.sidebar.number_input(
     step=0.05,
 )
 TL = st.sidebar.number_input(
-    "Período de desplazamiento (TL) [s]:",
+    "Períero de desplazamiento (TL) [s]:",
     min_value=0.5,
     max_value=10.0,
     value=TL_base,
@@ -266,7 +266,7 @@ with col_y:
         st.info("**Análisis Elástico Puro (R = 1.0)**")
 
 
-# --- ALGORITMO DEL FACTOR C (Art. 18 - TABLA N° 6 en image_525e38.png) ---
+# --- ALGORITMO DEL FACTOR C (Art. 18 - TABLA N° 6) ---
 def calcular_sa(t, R):
     if t < 0.2 * Tp:
         if R > 1:
@@ -283,13 +283,16 @@ def calcular_sa(t, R):
     return (Z * U * C * S * g) / R
 
 
-# Generación de datos
-t_vals = np.linspace(0.0, 5.0, 1000)
+# --- MODIFICACIÓN DE INTERVALOS EXACTOS PARA ETABS (CADA 0.05s) ---
+periodos_base = np.arange(0.0, 5.05, 0.05)
+puntos_control = [0.2 * Tp, Tp, TL]
+periodos_finales = np.unique(np.sort(np.concatenate((periodos_base, puntos_control))))
+
 data = pd.DataFrame(
     {
-        "Periodo": t_vals,
-        "Sa_X": [calcular_sa(t, Rx) for t in t_vals],
-        "Sa_Y": [calcular_sa(t, Ry) for t in t_vals],
+        "Periodo": periodos_finales,
+        "Sa_X": [calcular_sa(t, Rx) for t in periodos_finales],
+        "Sa_Y": [calcular_sa(t, Ry) for t in periodos_finales],
     }
 )
 
@@ -341,12 +344,15 @@ def graficar_eje(col, y_col, titulo, color_linea, R_act):
 
         st.pyplot(fig)
 
-        csv = data[["Periodo", y_col]].to_csv(index=False).encode("utf-8")
+        # --- EXPORTACIÓN FORMATO .TXT LIMPIO NATIVO PARA ETABS ---
+        txt_lineas = data[["Periodo", y_col]].to_csv(
+            index=False, header=False, sep="\t"
+        )
         st.download_button(
-            label=f"📥 Descargar CSV ({titulo})",
-            data=csv,
-            file_name=f"espectro_{y_col}.csv",
-            mime="text/csv",
+            label=f"📥 Descargar Espectro ETABS ({titulo})",
+            data=txt_lineas,
+            file_name=f"espectro_etabs_{y_col}.txt",
+            mime="text/plain",
         )
 
 
