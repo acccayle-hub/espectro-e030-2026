@@ -1,3 +1,4 @@
+Python
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -9,19 +10,18 @@ st.set_page_config(
     page_title="Espectro E.030-2026 Profesional", layout="wide"
 )
 
-# --- CABECERA ADAPTABLE (CORREGIDA PARA QUE NO TAPE EL CONTENIDO EN CELULARES) ---
-try:
-    st.logo("logo_puican.png", icon_image="logo_puican.png")
-except Exception:
-    pass
+# --- CABECERA PROFESIONAL ---
+col_titulo, col_logo = st.columns([5, 1])
 
-st.title("⚙️ Sistema de Espectros Sísmicos Parametrizado")
-st.subheader("Norma Técnica E.030 - Edición 2026")
+with col_titulo:
+    st.title("⚙️ Sistema de Espectros Sísmicos Parametrizado")
+    st.subheader("Norma Técnica E.030 - Edición 2026")
 
-try:
-    st.image("logo_puican.png", width=220)
-except Exception:
-    pass
+with col_logo:
+    try:
+        st.image("logo_puican.png", width=500)
+    except Exception:
+        pass
 st.markdown("---")
 
 # --- SIDEBAR: CONTROLES GENERALES ---
@@ -67,7 +67,7 @@ suelo_sel = st.sidebar.selectbox(
         "S1 (Roca o suelo muy rígido)",
         "S2 (Suelos intermedios)",
         "S3 (Suelos blandos)",
-        "S4 (Conditions excepcionales)",
+        "S4 (Condiciones excepcionales)",
     ],
     index=2,
 )
