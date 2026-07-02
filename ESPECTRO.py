@@ -8,6 +8,23 @@ from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 st.set_page_config(
     page_title="Espectro E.030-2026 Profesional", layout="wide"
 )
+
+# --- CABECERA LIMPIA (SIN LOGO) ---
+st.title("⚙️ Sistema de Espectros Sísmicos Parametrizado")
+st.subheader("Norma Técnica E.030 - Edición 2026")
+st.markdown("---")
+
+# --- SIDEBAR: CONTROLES GENERALES ---
+st.sidebar.header("⚙️ 1. Factores Generales")
+
+g = st.sidebar.number_input(
+    "Aceleración de la gravedad (g) [m/s²]:",
+    min_value=1.0,
+    max_value=10.0,
+    value=9.81,
+    step=0.01,
+)
+
 # Tabla de Zonas
 z_opts = {
     "Zona 4 (Z = 0.45)": 0.45,
@@ -40,7 +57,7 @@ suelo_sel = st.sidebar.selectbox(
         "S1 (Roca o suelo muy rígido)",
         "S2 (Suelos intermedios)",
         "S3 (Suelos blandos)",
-        "S4 (Condiciones excepcionales)",
+        "S4 (Conditions excepcionales)",
     ],
     index=2,
 )
@@ -227,7 +244,6 @@ def calcular_sa(t, R):
 
 
 # --- GENERACIÓN DE DATOS CORREGIDA ---
-# Intervalos exactos de 0.01s para evitar duplicados por redondeo
 t_vals = np.arange(0.0, 5.01, 0.01)
 data = pd.DataFrame(
     {
