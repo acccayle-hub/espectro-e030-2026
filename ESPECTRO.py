@@ -304,7 +304,3 @@ def graficar_eje(col, y_col, titulo, color_linea):
 
 graficar_eje(g_col1, "Sa_X", "Dirección X-X", "#D32F2F")
 graficar_eje(g_col2, "Sa_Y", "Dirección Y-Y", "#1F77B4")
-
-
-graficar_eje(g_col1, "Sa_X", "Dirección X-X", "#D32F2F")
-graficar_eje(g_col2, "Sa_Y", "Dirección Y-Y", "#1F77B4")
