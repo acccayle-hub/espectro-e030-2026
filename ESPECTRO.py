@@ -35,7 +35,7 @@ z_opts = {
 z_sel = st.sidebar.selectbox("Factor de Zona (Z):", list(z_opts.keys()))
 Z = z_opts[z_sel]
 
-# Tabla de Categorías y Factor U (Tabla N° 7 de image_ed88ca.png)
+# Tabla de Categorías y Factor U (Tabla N° 7)
 cat_sel = st.sidebar.selectbox(
     "Categoría de Edificación (Tabla N° 7):",
     [
@@ -46,7 +46,7 @@ cat_sel = st.sidebar.selectbox(
     ],
 )
 
-# Lógica condicional dinámica según especifica la Nota al pie de la Tabla N° 7 (image_ed88ca.png)
+# Lógica condicional dinámica según especifica la Nota al pie de la Tabla N° 7
 if "Cat A1" in cat_sel:
     if Z in [0.45, 0.35]:  # Zonas 4 y 3 requieren aislamiento de base obligatorio
         U_default = 1.0
@@ -77,7 +77,7 @@ U = st.sidebar.number_input(
 st.sidebar.markdown("---")
 st.sidebar.header("🍂 2. Parámetros de Sitio (Suelo E.030-2026)")
 
-# Selección oficial de los perfiles de suelo según Tabla N° 2 y Tabla N° 3 (image_ed7d45.png)
+# Selección oficial de los perfiles de suelo según Tabla N° 2 y Tabla N° 3
 suelo_sel = st.sidebar.selectbox(
     "Perfil de Suelo:",
     [
@@ -104,7 +104,7 @@ valor_s_zona = tabla_4_S[suelo_sel][idx_zona]
 
 msg_status = "fijo"
 
-# Asignación estricta del peor escenario por falta de ensayo Vs30 (Nota * de la norma 2026)
+# Asignación estricta del peor escenario por falta de ensayo Vs30
 if suelo_sel == "S0 (Roca)":
     S_base = float(valor_s_zona)
     Tp_base, TL_base = 0.30, 3.00
@@ -137,6 +137,14 @@ TL = st.sidebar.number_input(
     "Período de desplazamiento (TL) [s]:", min_value=0.5, max_value=12.0, value=TL_base, step=0.1
 )
 
+# --- CRITERIO DE APLICACIÓN DE LA NORMA (Art. 18) ---
+st.sidebar.markdown("---")
+st.sidebar.header("📊 3. Tipo de Análisis Síntesis")
+tipo_analisis = st.sidebar.radio(
+    "Considerar factor C según:",
+    ["Análisis Dinámico (Art. 18.1 - Con Rampa)", "Análisis Estático (Art. 18.3 - Todo C=2.5)"]
+)
+
 # --- CONFIGURACIÓN DE SISTEMAS E IRREGULARIDADES POR EJE ---
 st.subheader("📐 Coeficientes de Reducción Sísmica ($R = R_0 \\cdot I_a \\cdot I_p$)")
 col_x, col_y = st.columns(2)
@@ -161,23 +169,18 @@ ip_opts = {
     "Discontinuidad del Diafragma (0.85)": 0.85,
 }
 
-# Tabla N° 10 Oficial actualizada al 100% (image_ed8984.png)
 sistemas_opts = {
-    # Concreto Armado
     "Concreto Armado: Pórticos (R0 = 8)": 8,
     "Concreto Armado: Dual (R0 = 7)": 7,
     "Concreto Armado: De muros estructurales (R0 = 6)": 6,
-    "Concreto Armado: Muros de ductilidad limitada (R0 = 3.5)": 3.5,  # Modificado de 4 a 3.5 según la tabla
-    # Albañilería
+    "Concreto Armado: Muros de ductilidad limitada (R0 = 3.5)": 3.5,
     "Albañilería Armada o Confinada (R0 = 3)": 3,
-    # Acero Estructural
     "Acero: Pórticos Especiales Resistentes a Momentos (SMF) (R0 = 8)": 8,
     "Acero: Pórticos Excentricamente Arriostrados (EBF) (R0 = 8)": 8,
     "Acero: Pórticos Especiales Concéntricamente Arriostrados (SCBF) (R0 = 7)": 7,
     "Acero: Pórticos Intermedios Resistentes a Momentos (IMF) (R0 = 5)": 5,
     "Acero: Pórticos Ordinarios Resistentes a Momentos (OMF) (R0 = 4)": 4,
     "Acero: Pórticos Ordinarios Concéntricamente Arriostrados (OCBF) (R0 = 4)": 4,
-    # Otros
     "Madera (R0 = 7)": 7,
     "Estructuras tipo péndulo invertido (Art. 22.3) (R0 = 2.5)": 2.5,
     "Análisis Elástico Puro (R = 1.0)": 1,
@@ -212,15 +215,29 @@ with col_y:
         st.info("**Análisis Elástico Puro (R = 1.0)**")
 
 
-# --- ALGORITMO OFICIAL DEL FACTOR C (Art. 18.3 - MESETA CONSTANTE EN C = 2.5 DESDE T = 0) ---
+# --- ALGORITMO OFICIAL SEGÚN EL ARTÍCULO 18 (image_edf1fe.png) ---
 def calcular_sa(t, R):
-    # Corrección estricta: C = 2.5 estable en todo el rango inicial de la meseta (image_ed7d9f.png)
-    if t <= Tp:
-        C = 2.5
-    elif t <= TL:
-        C = 2.5 * (Tp / t)
+    if "Análisis Dinámico" in tipo_analisis:
+        # Tramo 1: Rampa analítica exacta de la Tabla N° 6 (Art. 18.1)
+        if t < 0.2 * Tp:
+            C = 1.0 + 7.5 * (t / Tp)
+        # Tramo 2: Meseta constante
+        elif t <= Tp:
+            C = 2.5
+        # Tramo 3: Caída hiperbólica
+        elif t <= TL:
+            C = 2.5 * (Tp / t)
+        # Tramo 4: Caída cuadrática
+        else:
+            C = 2.5 * (Tp * TL) / (t**2)
     else:
-        C = 2.5 * (Tp * TL) / (t**2)
+        # Criterio para Análisis Estático Basal (Art. 18.3)
+        if t <= Tp:
+            C = 2.5
+        elif t <= TL:
+            C = 2.5 * (Tp / t)
+        else:
+            C = 2.5 * (Tp * TL) / (t**2)
 
     return (Z * U * C * S * g) / R
 
@@ -273,7 +290,7 @@ def graficar_eje(col, y_col, titulo, color_linea):
 
         st.pyplot(fig)
 
-        # Formato de exportación directa a ETABS
+        # Formato de exportación para ETABS
         lineas_formateadas = [f"{fila['Periodo']:.3f}\t{fila[y_col]:.4f}" for _, fila in data.iterrows()]
         txt_final = "\n".join(lineas_formateadas)
 
@@ -283,6 +300,10 @@ def graficar_eje(col, y_col, titulo, color_linea):
             file_name=f"espectro_e030_2026_{y_col}.txt",
             mime="text/plain",
         )
+
+
+graficar_eje(g_col1, "Sa_X", "Dirección X-X", "#D32F2F")
+graficar_eje(g_col2, "Sa_Y", "Dirección Y-Y", "#1F77B4")
 
 
 graficar_eje(g_col1, "Sa_X", "Dirección X-X", "#D32F2F")
