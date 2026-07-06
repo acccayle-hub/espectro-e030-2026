@@ -54,11 +54,10 @@ suelo_sel = st.sidebar.selectbox(
     "Perfil de Suelo:",
     [
         "S0 (Roca del lugar)",
-        "S1 (Roca muy rígido)",
-        "S2 (Roca rígido)",
-        "S3 (Suelos intermedios)",
-        "S4 (Suelos blandos)",
-        "S5 (Suelos excepcionales)",
+        "S1 (Roca o suelo muy rígido)",
+        "S2 (Suelos intermedios)",
+        "S3 (Suelos blandos)",
+        "S4 (Conditions excepcionales)",
     ],
     index=2,
 )
