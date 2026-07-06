@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
-# Configuración de la interfaz
+# Configuración de la interfaz de Streamlit
 st.set_page_config(
     page_title="Espectro E.030-2026 Oficial", layout="wide"
 )
@@ -35,21 +35,49 @@ z_opts = {
 z_sel = st.sidebar.selectbox("Factor de Zona (Z):", list(z_opts.keys()))
 Z = z_opts[z_sel]
 
-# Tabla de Categorías (U)
-u_opts = {
-    "Cat A (Edificaciones Esenciales - 1.50)": 1.50,
-    "Cat B (Edificaciones Importantes - 1.30)": 1.30,
-    "Cat C (Edificaciones Comunes - 1.00)": 1.00,
-    "Cat D (Edificaciones Temporales - 1.00)": 1.00,
-}
-U = u_opts[
-    st.sidebar.selectbox("Categoría de Edificación (U):", list(u_opts.keys()))
-]
+# Tabla de Categorías y Factor U (Tabla N° 7 de image_ed88ca.png)
+cat_sel = st.sidebar.selectbox(
+    "Categoría de Edificación (Tabla N° 7):",
+    [
+        "Cat A1: Establecimientos de Salud (2do y 3er nivel)",
+        "Cat A2: Edificaciones Esenciales (Colegios, Univ., Bomberos, etc.)",
+        "Cat B: Edificaciones Importantes (Cines, Estadios, Centros Comerciales)",
+        "Cat C: Edificaciones Comunes (Viviendas, Oficinas, Hoteles)",
+    ],
+)
+
+# Lógica condicional dinámica según especifica la Nota al pie de la Tabla N° 7 (image_ed88ca.png)
+if "Cat A1" in cat_sel:
+    if Z in [0.45, 0.35]:  # Zonas 4 y 3 requieren aislamiento de base obligatorio
+        U_default = 1.0
+        st.sidebar.info(
+            "ℹ️ **Nota de la norma:** Para Cat. A1 en Zonas 3 y 4 se requiere aislamiento sísmico en la base, por tanto **U = 1.0**."
+        )
+    else:  # Zonas 2 y 1
+        U_default = 1.5
+        st.sidebar.warning(
+            "⚠️ **Nota de la norma:** Para Cat. A1 en Zonas 1 y 2, de no utilizar aislamiento el valor mínimo de **U es 1.5**."
+        )
+elif "Cat A2" in cat_sel:
+    U_default = 1.5
+elif "Cat B" in cat_sel:
+    U_default = 1.3
+else:  # Cat C
+    U_default = 1.0
+
+# Campo numérico del Factor U final
+U = st.sidebar.number_input(
+    "Factor de Uso o Importancia (U):",
+    min_value=1.0,
+    max_value=2.0,
+    value=U_default,
+    step=0.05,
+)
 
 st.sidebar.markdown("---")
 st.sidebar.header("🍂 2. Parámetros de Sitio (Suelo E.030-2026)")
 
-# Selección oficial de los perfiles de suelo según Tabla N° 2
+# Selección oficial de los perfiles de suelo según Tabla N° 2 y Tabla N° 3 (image_ed7d45.png)
 suelo_sel = st.sidebar.selectbox(
     "Perfil de Suelo:",
     [
@@ -62,8 +90,7 @@ suelo_sel = st.sidebar.selectbox(
     index=2,
 )
 
-# Diccionario oficial de factores S (Tabla N° 4)
-# Formato de las tuplas: (Zona 4, Zona 3, Zona 2, Zona 1)
+# Diccionario oficial de factores S por zona
 tabla_4_S = {
     "S0 (Roca)": (0.80, 0.80, 0.80, 0.80),
     "S1 (Suelos muy rígidos)": (1.00, 1.00, 1.00, 1.00),
@@ -72,13 +99,12 @@ tabla_4_S = {
     "S4 (Suelos blandos)": ("Análisis Especial", 1.30, 1.70, 2.40),
 }
 
-# Índice correspondiente a la zona seleccionada
 idx_zona = {0.45: 0, 0.35: 1, 0.25: 2, 0.10: 3}[Z]
 valor_s_zona = tabla_4_S[suelo_sel][idx_zona]
 
 msg_status = "fijo"
 
-# Asignación estricta de parámetros según Tabla N° 4 y Tabla N° 5 de la norma 2026
+# Asignación estricta del peor escenario por falta de ensayo Vs30 (Nota * de la norma 2026)
 if suelo_sel == "S0 (Roca)":
     S_base = float(valor_s_zona)
     Tp_base, TL_base = 0.30, 3.00
@@ -93,8 +119,7 @@ elif suelo_sel == "S4 (Suelos blandos)":
         S_base = float(valor_s_zona)
         Tp_base, TL_base = 1.20, 1.60
 else:
-    # Casos S2 y S3 con intervalos (*)
-    # Por criterio normativo sin Vs30, se adopta el valor más desfavorable (límite superior)
+    # Criterio normativo sin Vs30 para S2 y S3: Límite superior del intervalo
     S_base = float(valor_s_zona[1])
     if suelo_sel == "S2 (Suelos rígidos)":
         Tp_base, TL_base = 0.60, 2.00
@@ -102,33 +127,18 @@ else:
         Tp_base, TL_base = 0.90, 1.60
     msg_status = "nota_pie"
 
-# Inputs editables en el Sidebar precargados con los valores normativos estándar
 S = st.sidebar.number_input(
-    "Factor de Suelo final (S):",
-    min_value=0.5,
-    max_value=3.0,
-    value=S_base,
-    step=0.01,
+    "Factor de Suelo final (S):", min_value=0.5, max_value=3.0, value=S_base, step=0.01
 )
 Tp = st.sidebar.number_input(
-    "Período de plataforma (Tp) [s]:",
-    min_value=0.05,
-    max_value=4.0,
-    value=Tp_base,
-    step=0.05,
+    "Período de plataforma (Tp) [s]:", min_value=0.05, max_value=4.0, value=Tp_base, step=0.05
 )
 TL = st.sidebar.number_input(
-    "Período de desplazamiento (TL) [s]:",
-    min_value=0.5,
-    max_value=12.0,
-    value=TL_base,
-    step=0.1,
+    "Período de desplazamiento (TL) [s]:", min_value=0.5, max_value=12.0, value=TL_base, step=0.1
 )
 
 # --- CONFIGURACIÓN DE SISTEMAS E IRREGULARIDADES POR EJE ---
-st.subheader(
-    "📐 Coeficientes de Reducción Sísmica ($R = R_0 \\cdot I_a \\cdot I_p$)"
-)
+st.subheader("📐 Coeficientes de Reducción Sísmica ($R = R_0 \\cdot I_a \\cdot I_p$)")
 col_x, col_y = st.columns(2)
 
 ia_opts = {
@@ -151,13 +161,26 @@ ip_opts = {
     "Discontinuidad del Diafragma (0.85)": 0.85,
 }
 
+# Tabla N° 10 Oficial actualizada al 100% (image_ed8984.png)
 sistemas_opts = {
-    "Pórticos de Concreto Armado (R0 = 8)": 8,
-    "Sistema Dual (R0 = 7)": 7,
-    "Muros Estructurales / Placas (R0 = 6)": 6,
-    "Albañilería Confinada (R0 = 3)": 3,
-    "Muros de Ductilidad Limitada (R0 = 4)": 4,
-    "Análisis Elástico Puro (R = 1)": 1,
+    # Concreto Armado
+    "Concreto Armado: Pórticos (R0 = 8)": 8,
+    "Concreto Armado: Dual (R0 = 7)": 7,
+    "Concreto Armado: De muros estructurales (R0 = 6)": 6,
+    "Concreto Armado: Muros de ductilidad limitada (R0 = 3.5)": 3.5,  # Modificado de 4 a 3.5 según la tabla
+    # Albañilería
+    "Albañilería Armada o Confinada (R0 = 3)": 3,
+    # Acero Estructural
+    "Acero: Pórticos Especiales Resistentes a Momentos (SMF) (R0 = 8)": 8,
+    "Acero: Pórticos Excentricamente Arriostrados (EBF) (R0 = 8)": 8,
+    "Acero: Pórticos Especiales Concéntricamente Arriostrados (SCBF) (R0 = 7)": 7,
+    "Acero: Pórticos Intermedios Resistentes a Momentos (IMF) (R0 = 5)": 5,
+    "Acero: Pórticos Ordinarios Resistentes a Momentos (OMF) (R0 = 4)": 4,
+    "Acero: Pórticos Ordinarios Concéntricamente Arriostrados (OCBF) (R0 = 4)": 4,
+    # Otros
+    "Madera (R0 = 7)": 7,
+    "Estructuras tipo péndulo invertido (Art. 22.3) (R0 = 2.5)": 2.5,
+    "Análisis Elástico Puro (R = 1.0)": 1,
 }
 
 with col_x:
@@ -189,9 +212,9 @@ with col_y:
         st.info("**Análisis Elástico Puro (R = 1.0)**")
 
 
-# --- ALGORITMO CORREGIDO DEL FACTOR C (Art. 18.3 - MESETA CONSTANTE EN C=2.5) ---
+# --- ALGORITMO OFICIAL DEL FACTOR C (Art. 18.3 - MESETA CONSTANTE EN C = 2.5 DESDE T = 0) ---
 def calcular_sa(t, R):
-    # Corrección estricta: Para el cálculo espectral normativo de diseño, C = 2.5 estable desde T = 0 hasta Tp
+    # Corrección estricta: C = 2.5 estable en todo el rango inicial de la meseta (image_ed7d9f.png)
     if t <= Tp:
         C = 2.5
     elif t <= TL:
@@ -250,7 +273,7 @@ def graficar_eje(col, y_col, titulo, color_linea):
 
         st.pyplot(fig)
 
-        # EXPORTACIÓN ADAPTADA PARA ETABS (Formato de dos columnas separado por tabulación)
+        # Formato de exportación directa a ETABS
         lineas_formateadas = [f"{fila['Periodo']:.3f}\t{fila[y_col]:.4f}" for _, fila in data.iterrows()]
         txt_final = "\n".join(lineas_formateadas)
 
