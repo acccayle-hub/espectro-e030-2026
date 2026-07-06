@@ -6,12 +6,12 @@ from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
 # Configuración de la interfaz
 st.set_page_config(
-    page_title="Espectro E.030-2026 Profesional", layout="wide"
+    page_title="Espectro E.030-2026 Oficial", layout="wide"
 )
 
-# --- CABECERA LIMPIA (SIN LOGO) ---
+# --- CABECERA ---
 st.title("⚙️ Sistema de Espectros Sísmicos Parametrizado")
-st.subheader("Norma Técnica E.030 - Edición 2026")
+st.subheader("Norma Técnica E.030 - Edición Oficial 2026")
 st.markdown("---")
 
 # --- SIDEBAR: CONTROLES GENERALES ---
@@ -25,7 +25,7 @@ g = st.sidebar.number_input(
     step=0.01,
 )
 
-# Tabla de Zonas
+# Tabla de Zonas (Tabla N° 4)
 z_opts = {
     "Zona 4 (Z = 0.45)": 0.45,
     "Zona 3 (Z = 0.35)": 0.35,
@@ -35,7 +35,7 @@ z_opts = {
 z_sel = st.sidebar.selectbox("Factor de Zona (Z):", list(z_opts.keys()))
 Z = z_opts[z_sel]
 
-# Tabla de Categorías
+# Tabla de Categorías (U)
 u_opts = {
     "Cat A (Edificaciones Esenciales - 1.50)": 1.50,
     "Cat B (Edificaciones Importantes - 1.30)": 1.30,
@@ -47,96 +47,87 @@ U = u_opts[
 ]
 
 st.sidebar.markdown("---")
-st.sidebar.header("🍂 2. Parámetros de Sitio (Suelo)")
+st.sidebar.header("🍂 2. Parámetros de Sitio (Suelo E.030-2026)")
 
-# Selección del tipo de suelo
+# Selección oficial de los perfiles de suelo según Tabla N° 2
 suelo_sel = st.sidebar.selectbox(
     "Perfil de Suelo:",
     [
-        "S0 (Roca del lugar)",
-        "S1 (Roca o suelo muy rígido)",
-        "S2 (Suelos intermedios)",
-        "S3 (Suelos blandos)",
-        "S4 (Conditions excepcionales)",
+        "S0 (Roca)",
+        "S1 (Suelos muy rígidos)",
+        "S2 (Suelos rígidos)",
+        "S3 (Suelos intermedios)",
+        "S4 (Suelos blandos)",
     ],
     index=2,
 )
 
-# Diccionario de rangos de la Tabla N° 4 y N° 5 (Z4, Z3, Z2, Z1)
+# Diccionario oficial de factores S (Tabla N° 4)
+# Formato de las tuplas: (Zona 4, Zona 3, Zona 2, Zona 1)
 tabla_4_S = {
-    "S0 (Roca del lugar)": (0.80, 0.80, 0.80, 0.80),
-    "S1 (Roca o suelo muy rígido)": (1.00, 1.00, 1.00, 1.00),
-    "S2 (Suelos intermedios)": (
-        (1.00, 1.10),
-        (1.00, 1.15),
-        (1.00, 1.30),
-        (1.00, 1.30),
-    ),
-    "S3 (Suelos blandos)": (
-        (1.10, 1.20),
-        (1.15, 1.20),
-        (1.30, 1.40),
-        (1.30, 1.60),
-    ),
-    "S4 (Condiciones excepcionales)": (1.00, 1.30, 1.70, 2.40),
+    "S0 (Roca)": (0.80, 0.80, 0.80, 0.80),
+    "S1 (Suelos muy rígidos)": (1.00, 1.00, 1.00, 1.00),
+    "S2 (Suelos rígidos)": ((1.00, 1.10), (1.00, 1.15), (1.00, 1.30), (1.00, 1.30)),
+    "S3 (Suelos intermedios)": ((1.10, 1.20), (1.15, 1.20), (1.30, 1.40), (1.30, 1.60)),
+    "S4 (Suelos blandos)": ("Análisis Especial", 1.30, 1.70, 2.40),
 }
 
+# Índice correspondiente a la zona seleccionada
 idx_zona = {0.45: 0, 0.35: 1, 0.25: 2, 0.10: 3}[Z]
-S_base = 1.00
-Tp_base, TL_base = 0.40, 2.50
-msg_status = ""
+valor_s_zona = tabla_4_S[suelo_sel][idx_zona]
 
-# --- LÓGICA SIN ENSAYO GEOFÍSICO (VALORES MÁXIMOS POR DEFECTO EN S2 Y S3) ---
-if suelo_sel in ["S0 (Roca del lugar)", "S1 (Roca o suelo muy rígido)", "S4 (Condiciones excepcionales)"]:
-    S_base = (
-        float(tabla_4_S[suelo_sel][idx_zona])
-        if suelo_sel != "S4 (Condiciones excepcionales)"
-        else float(np.max(tabla_4_S[suelo_sel][idx_zona]))
-    )
-    if suelo_sel == "S0 (Roca del lugar)":
-        Tp_base, TL_base = 0.3, 3.0
-    elif suelo_sel == "S1 (Roca o suelo muy rígido)":
-        Tp_base, TL_base = 0.4, 2.5
+msg_status = "fijo"
+
+# Asignación estricta de parámetros según Tabla N° 4 y Tabla N° 5 de la norma 2026
+if suelo_sel == "S0 (Roca)":
+    S_base = float(valor_s_zona)
+    Tp_base, TL_base = 0.30, 3.00
+elif suelo_sel == "S1 (Suelos muy rígidos)":
+    S_base = float(valor_s_zona)
+    Tp_base, TL_base = 0.40, 2.50
+elif suelo_sel == "S4 (Suelos blandos)":
+    if valor_s_zona == "Análisis Especial":
+        st.sidebar.error("⚠️ S4 en Zona 4 requiere un análisis de respuesta de sitio obligatorio.")
+        S_base, Tp_base, TL_base = 1.20, 1.20, 1.60
     else:
-        Tp_base, TL_base = 1.2, 1.6
-    msg_status = "fijo"
+        S_base = float(valor_s_zona)
+        Tp_base, TL_base = 1.20, 1.60
 else:
-    # Para S2 y S3 se toma automáticamente el valor máximo del rango (Criterio Conservador)
-    rango_S = tabla_4_S[suelo_sel][idx_zona]
-    S_base = float(rango_S[1])
-    
-    if suelo_sel == "S2 (Suelos intermedios)":
-        Tp_base, TL_base = 0.6, 2.0
-    else:
-        Tp_base, TL_base = 0.9, 1.6
+    # Casos S2 y S3 con intervalos (*)
+    # Por criterio normativo sin Vs30, se adopta el valor más desfavorable (límite superior)
+    S_base = float(valor_s_zona[1])
+    if suelo_sel == "S2 (Suelos rígidos)":
+        Tp_base, TL_base = 0.60, 2.00
+    else:  # S3 (Suelos intermedios)
+        Tp_base, TL_base = 0.90, 1.60
     msg_status = "nota_pie"
 
-# Parámetros finales (Editables en la barra lateral)
+# Inputs editables en el Sidebar precargados con los valores normativos estándar
 S = st.sidebar.number_input(
     "Factor de Suelo final (S):",
     min_value=0.5,
-    max_value=2.5,
-    value=float(S_base),
+    max_value=3.0,
+    value=S_base,
     step=0.01,
 )
 Tp = st.sidebar.number_input(
     "Período de plataforma (Tp) [s]:",
     min_value=0.05,
-    max_value=3.0,
+    max_value=4.0,
     value=Tp_base,
     step=0.05,
 )
 TL = st.sidebar.number_input(
     "Período de desplazamiento (TL) [s]:",
     min_value=0.5,
-    max_value=10.0,
+    max_value=12.0,
     value=TL_base,
     step=0.1,
 )
 
 # --- CONFIGURACIÓN DE SISTEMAS E IRREGULARIDADES POR EJE ---
 st.subheader(
-    "📐 Coeficientes de Reducción Sísmica Corregidos ($R = R_0 \\cdot I_a \\cdot I_p$)"
+    "📐 Coeficientes de Reducción Sísmica ($R = R_0 \\cdot I_a \\cdot I_p$)"
 )
 col_x, col_y = st.columns(2)
 
@@ -175,24 +166,10 @@ with col_x:
     R0_x = sistemas_opts[sis_x]
 
     if R0_x > 1:
-        Ia_x = ia_opts[
-            st.selectbox(
-                "Irregularidad en Altura (Ia) - X:",
-                list(ia_opts.keys()),
-                key="ia_x",
-            )
-        ]
-        Ip_x = ip_opts[
-            st.selectbox(
-                "Irregularidad en Planta (Ip) - X:",
-                list(ip_opts.keys()),
-                key="ip_x",
-            )
-        ]
+        Ia_x = ia_opts[st.selectbox("Irregularidad en Altura (Ia) - X:", list(ia_opts.keys()), key="ia_x")]
+        Ip_x = ip_opts[st.selectbox("Irregularidad en Planta (Ip) - X:", list(ip_opts.keys()), key="ip_x")]
         Rx = R0_x * Ia_x * Ip_x
-        st.info(
-            f"**R efectivo en X:** {R0_x} × {Ia_x} × {Ip_x} = **{Rx:.3f}**"
-        )
+        st.info(f"**R efectivo en X:** {R0_x} × {Ia_x} × {Ip_x} = **{Rx:.3f}**")
     else:
         Rx = 1.0
         st.info("**Análisis Elástico Puro (R = 1.0)**")
@@ -203,37 +180,19 @@ with col_y:
     R0_y = sistemas_opts[sis_y]
 
     if R0_y > 1:
-        Ia_y = ia_opts[
-            st.selectbox(
-                "Irregularidad en Altura (Ia) - Y:",
-                list(ia_opts.keys()),
-                key="ia_y",
-            )
-        ]
-        Ip_y = ip_opts[
-            st.selectbox(
-                "Irregularidad en Planta (Ip) - Y:",
-                list(ip_opts.keys()),
-                key="ip_y",
-            )
-        ]
+        Ia_y = ia_opts[st.selectbox("Irregularidad en Altura (Ia) - Y:", list(ia_opts.keys()), key="ia_y")]
+        Ip_y = ip_opts[st.selectbox("Irregularidad en Planta (Ip) - Y:", list(ip_opts.keys()), key="ip_y")]
         Ry = R0_y * Ia_y * Ip_y
-        st.info(
-            f"**R efectivo en Y:** {R0_y} × {Ia_y} × {Ip_y} = **{Ry:.3f}**"
-        )
+        st.info(f"**R efectivo en Y:** {R0_y} × {Ia_y} × {Ip_y} = **{Ry:.3f}**")
     else:
         Ry = 1.0
         st.info("**Análisis Elástico Puro (R = 1.0)**")
 
 
-# --- ALGORITMO DEL FACTOR C (Art. 18 - TABLA N° 6) ---
+# --- ALGORITMO CORREGIDO DEL FACTOR C (Art. 18.3 - MESETA CONSTANTE EN C=2.5) ---
 def calcular_sa(t, R):
-    if t < 0.2 * Tp:
-        if R > 1:
-            C = 1.0 + 7.5 * (t / Tp)
-        else:
-            C = 2.5
-    elif t <= Tp:
+    # Corrección estricta: Para el cálculo espectral normativo de diseño, C = 2.5 estable desde T = 0 hasta Tp
+    if t <= Tp:
         C = 2.5
     elif t <= TL:
         C = 2.5 * (Tp / t)
@@ -243,7 +202,7 @@ def calcular_sa(t, R):
     return (Z * U * C * S * g) / R
 
 
-# --- GENERACIÓN DE DATOS CORREGIDA ---
+# --- GENERACIÓN DE CURVAS ---
 t_vals = np.arange(0.0, 5.01, 0.01)
 data = pd.DataFrame(
     {
@@ -259,26 +218,18 @@ st.subheader("📈 Espectros Sísmicos de Diseño E.030-2026")
 
 if msg_status == "nota_pie":
     st.warning(
-        f"⚠️ **Criterio Conservador Automático (Sin Vs30):** Al no considerar el ensayo de ondas de corte, la norma exige adoptar los valores más desfavorables del intervalo ($S = {S:.2f}$, Tp = {Tp:.2f}s, TL = {TL:.2f}s) para proteger la estructura."
+        f"⚠️ **Nota (*):** Al no disponer de información relativa a la velocidad de ondas de corte ($V_{{s30}}$), se adopta el límite superior del intervalo ($S = {S:.2f}$, $T_P = {Tp:.2f}$ s, $T_L = {TL:.2f}$ s) según el Art. 17."
     )
 
 g_col1, g_col2 = st.columns(2)
 
 
-def graficar_eje(col, y_col, titulo, color_linea, R_act):
+def graficar_eje(col, y_col, titulo, color_linea):
     with col:
         fig, ax = plt.subplots(figsize=(6, 3.8))
-        ax.plot(
-            data["Periodo"], data[y_col], color=color_linea, linewidth=2.5
-        )
-        ax.fill_between(
-            data["Periodo"], data[y_col], color=color_linea, alpha=0.08
-        )
+        ax.plot(data["Periodo"], data[y_col], color=color_linea, linewidth=2.5)
+        ax.fill_between(data["Periodo"], data[y_col], color=color_linea, alpha=0.08)
 
-        if R_act > 1:
-            ax.axvline(
-                x=0.2 * Tp, color="#7f8c8d", linestyle=":", label="0.2 Tp"
-            )
         ax.axvline(x=Tp, color="#e74c3c", linestyle="--", label="Tp")
         ax.axvline(x=TL, color="#27ae60", linestyle="-.", label="TL")
 
@@ -299,22 +250,17 @@ def graficar_eje(col, y_col, titulo, color_linea, R_act):
 
         st.pyplot(fig)
 
-        # EXPORTACIÓN CORREGIDA: Periodos limpios con 3 decimales consecutivos para ETABS
-        lineas_formateadas = []
-        for _, fila in data.iterrows():
-            p_fmt = f"{fila['Periodo']:.3f}"
-            sa_fmt = f"{fila[y_col]:.4f}"
-            lineas_formateadas.append(f"{p_fmt}\t{sa_fmt}")
-        
+        # EXPORTACIÓN ADAPTADA PARA ETABS (Formato de dos columnas separado por tabulación)
+        lineas_formateadas = [f"{fila['Periodo']:.3f}\t{fila[y_col]:.4f}" for _, fila in data.iterrows()]
         txt_final = "\n".join(lineas_formateadas)
 
         st.download_button(
             label=f"📥 Descargar Espectro ETABS ({titulo})",
             data=txt_final,
-            file_name=f"espectro_etabs_{y_col}.txt",
+            file_name=f"espectro_e030_2026_{y_col}.txt",
             mime="text/plain",
         )
 
 
-graficar_eje(g_col1, "Sa_X", "Dirección X-X", "#D32F2F", Rx)
-graficar_eje(g_col2, "Sa_Y", "Dirección Y-Y", "#1F77B4", Ry)
+graficar_eje(g_col1, "Sa_X", "Dirección X-X", "#D32F2F")
+graficar_eje(g_col2, "Sa_Y", "Dirección Y-Y", "#1F77B4")
